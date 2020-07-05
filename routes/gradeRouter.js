@@ -2,7 +2,10 @@ import express from 'express';
 import controller from '../controllers/gradeController.js';
 
 const app = express();
+app.use(express.json());
 
+
+app.post('/grade/import', controller.importGrades);
 app.post('/grade/', controller.create);
 app.get('/grade/', controller.findAll);
 app.get('/grade/:id', controller.findOne);

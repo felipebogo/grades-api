@@ -1,9 +1,34 @@
 import { db } from '../models/index.js';
 import { logger } from '../config/logger.js';
+import fs from 'fs';
 
+const importGrades = async (_req, res) => {
+  try {
+    const { readFile } = fs.promises;
+    const data = await readFile('./grades.csv','utf8');
+    const dataArray = data.split(/\r?\n/);
+    dataArray.splice(0,1);
+    const dataJson = dataArray.map(data=>{
+      const colsArray = data.split(',');
+      const [name,subject,type,value,lastModified] = colsArray;
+      return {name,subject,type,value,lastModified:new Date(lastModified)};  
+    });
+    await db.gradeModel.deleteMany();
+    await db.gradeModel.insertMany(dataJson);
+    res.send("Importado com sucesso");
+
+  } catch (error) {
+    res
+      .status(500)
+      .send({ message: error.message || 'Algum erro ocorreu ao salvar' });
+    logger.error(`POST /grade - ${JSON.stringify(error.message)}`);
+  }
+};
 const create = async (req, res) => {
   try {
-    res.send();
+    const grade = new db.gradeModel(req.body);
+    const result = await grade.save();
+    res.send(result);
     logger.info(`POST /grade - ${JSON.stringify()}`);
   } catch (error) {
     res
@@ -22,7 +47,9 @@ const findAll = async (req, res) => {
     : {};
 
   try {
-    res.send();
+    const result = await db.gradeModel.find(condition);
+    console.log(result);
+    res.send(result);
     logger.info(`GET /grade`);
   } catch (error) {
     res
@@ -36,7 +63,8 @@ const findOne = async (req, res) => {
   const id = req.params.id;
 
   try {
-    res.send();
+    const result = await db.gradeModel.findById(id);
+    res.send(result);
 
     logger.info(`GET /grade - ${id}`);
   } catch (error) {
@@ -50,11 +78,17 @@ const update = async (req, res) => {
     return res.status(400).send({
       message: 'Dados para atualizacao vazio',
     });
+
   }
 
   const id = req.params.id;
 
   try {
+    const grade = { ...req.body, lastModified: Date.now() };
+
+    await db.gradeModel.findByIdAndUpdate(id, grade,
+      { new: true, useFindAndModify: false });
+
     res.send({ message: 'Grade atualizado com sucesso' });
 
     logger.info(`PUT /grade - ${id} - ${JSON.stringify(req.body)}`);
@@ -68,6 +102,7 @@ const remove = async (req, res) => {
   const id = req.params.id;
 
   try {
+    const result = await db.gradeModel.findByIdAndDelete(req.params.id);
     res.send({ message: 'Grade excluido com sucesso' });
 
     logger.info(`DELETE /grade - ${id}`);
@@ -80,9 +115,8 @@ const remove = async (req, res) => {
 };
 
 const removeAll = async (req, res) => {
-  const id = req.params.id;
-
   try {
+    await db.gradeModel.deleteMany();
     res.send({
       message: `Grades excluidos`,
     });
@@ -93,4 +127,4 @@ const removeAll = async (req, res) => {
   }
 };
 
-export default { create, findAll, findOne, update, remove, removeAll };
+export default { importGrades, create, findAll, findOne, update, remove, removeAll };
